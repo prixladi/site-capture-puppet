@@ -21,6 +21,8 @@ type JobDoc = mongoose.Document & {
   quality: number;
   progress?: number;
   errorMessage?: string;
+  status: boolean;
+  zipFileId?: ObjectID;
   items?: ProgressItem[];
 };
 
@@ -40,6 +42,8 @@ const jobSchema = new mongoose.Schema(
     ],
     quality: Number,
     progress: { type: Number, required: false },
+    status: Boolean,
+    zipFileId: mongoose.Types.ObjectId,
     items: {
       type: [
         {
