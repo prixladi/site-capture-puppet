@@ -1,0 +1,58 @@
+import { Page } from 'puppeteer';
+import { JobDoc, ProgressItem } from '../db/job';
+import mongoose from 'mongoose';
+import path from 'path';
+import fs from 'fs/promises';
+
+type ProcessorConfig = {
+  url: URL;
+  job: JobDoc;
+  jobModel: mongoose.Model<JobDoc>;
+  pagePromise: Promise<Page>;
+  folderName: string;
+  percentage: number;
+};
+
+const tryProcessUrl = async (url: URL, { viewports, quality }: JobDoc, fullPath: string, page: Page): Promise<ProgressItem> => {
+  try {
+    await page.goto(url.href);
+
+    for (const viewport of viewports) {
+      await page.setViewport(viewport);
+
+      const ext = quality >= 100 ? 'png' : 'jpeg';
+      const imgName = `${viewport.height}x${viewport.width}.${ext}`;
+
+      await page.screenshot({
+        path: path.join(fullPath, imgName),
+        type: ext,
+        quality: quality >= 100 ? undefined : Math.max(0, Math.min(quality, 100)),
+      });
+    }
+
+    return { url: url.href, status: true };
+  } catch (err) {
+    console.error(err);
+    return { url: url.href, status: false, errorMessage: err.toString() };
+  }
+};
+
+const processUrl = async ({ url, job, jobModel, pagePromise, folderName, percentage }: ProcessorConfig): Promise<void> => {
+  const page = await pagePromise;
+  const relativePath = path
+    .join(url.pathname, url.search, url.hash)
+    .replace('?', '$qm')
+    .replace('>', '$gt')
+    .replace('<', '$lt')
+    .replace('*', '$ast')
+    .replace('|', '$pip');
+
+  const fullPath = path.join('./', folderName, relativePath);
+  await fs.mkdir(fullPath, { recursive: true });
+
+  const resultItem: ProgressItem = await tryProcessUrl(url, job, fullPath, page);
+
+  await jobModel.updateOne({ _id: job._id }, { $inc: { progress: percentage }, $push: { items: resultItem } });
+};
+
+export default processUrl;

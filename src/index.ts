@@ -8,15 +8,16 @@ const runLoop = async (db: DB): Promise<void> => {
   const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
   const browser = await launch();
 
+  // TODO: Use MongoDB change streams
+  // TODO: Use redis to notify about new job added to DB
+  // TODO: Notify server that job has been finished
   while (!exiting) {
     try {
       const job = await db.jobModel.findOneAndUpdate({ progress: { $exists: false } }, { $set: { progress: 0 } });
       if (job) {
-        console.log(`Found job to proccess id: '${job._id}'.`);
+        console.log(`Found job to proccess, id: '${job._id}'.`);
         const start = new Date();
-
         await puppet({ job, db, browser });
-
         const end = new Date();
         const elapsed = end.getTime() - start.getTime();
         console.log(`Job with id '${job._id}' proccessed in ${elapsed}ms.`);

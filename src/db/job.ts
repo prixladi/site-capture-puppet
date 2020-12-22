@@ -7,7 +7,7 @@ type Viewport = {
 };
 
 type ProgressItem = {
-  path: string;
+  url: string;
   status: boolean;
   errorMessage?: string;
 };
@@ -20,8 +20,8 @@ type JobDoc = mongoose.Document & {
   viewports: Viewport[];
   quality: number;
   progress?: number;
-  errorMessage?: string;
   status: boolean;
+  errorMessage?: string;
   zipFileId?: ObjectID;
   items?: ProgressItem[];
 };
@@ -43,17 +43,15 @@ const jobSchema = new mongoose.Schema(
     quality: Number,
     progress: { type: Number, required: false },
     status: Boolean,
+    errorMessage: { type: String, required: false },
     zipFileId: mongoose.Types.ObjectId,
-    items: {
-      type: [
-        {
-          path: String,
-          status: Boolean,
-          message: { type: String, required: false },
-        },
-      ],
-      required: false,
-    },
+    items: [
+      {
+        url: String,
+        status: Boolean,
+        errorMessage: { type: String, required: false },
+      },
+    ],
   },
   { collection: collectionName, versionKey: false, timestamps: true },
 );

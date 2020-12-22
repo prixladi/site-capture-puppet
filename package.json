@@ -20,11 +20,13 @@
     "adm-zip": "^0.5.1",
     "mongo-gridfs": "^1.1.0",
     "mongoose": "^5.11.8",
-    "puppeteer": "^5.5.0"
+    "puppeteer": "^5.5.0",
+    "stream-buffers": "^3.0.2"
   },
   "devDependencies": {
     "@types/node": "^14.14.14",
     "@types/puppeteer": "^5.4.2",
+    "@types/stream-buffers": "^3.0.3",
     "@typescript-eslint/eslint-plugin": "^4.10.0",
     "@typescript-eslint/parser": "^4.10.0",
     "eslint": "^7.16.0",
