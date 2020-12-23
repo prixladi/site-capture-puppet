@@ -4,6 +4,9 @@ import fs from 'fs/promises';
 import { DB } from '../db';
 import zipAndStore from './fileStorage';
 import processUrl from './urlProcessor';
+import { percentOnProccessing } from '../constants';
+import { Semaphore } from 'await-semaphore';
+import { browserConfig } from '../configs';
 
 type RunConfig = {
   job: JobDoc;
@@ -23,7 +26,7 @@ const run = async ({ job, db, browser }: RunConfig): Promise<void> => {
   try {
     const urls = createUrls(url, subsites);
     const promises: Promise<void>[] = [];
-    const percentageEach = 99 / urls.length;
+    const percentageEach = percentOnProccessing / urls.length;
 
     // Test for basic errors, eg. ERR_CERT_AUTHORITY_INVALID
     const rootPage = await browser.newPage();
@@ -32,6 +35,8 @@ const run = async ({ job, db, browser }: RunConfig): Promise<void> => {
 
     await fs.mkdir(folderName, { recursive: true });
 
+    const maxTabs = Number.parseInt(browserConfig.maxParallelTabs);
+    const semaphore = new Semaphore(maxTabs);
     urls.forEach(async (url) => {
       const promise = processUrl({
         url,
@@ -40,6 +45,7 @@ const run = async ({ job, db, browser }: RunConfig): Promise<void> => {
         pagePromise: browser.newPage(),
         folderName,
         percentage: percentageEach,
+        semaphore,
       });
 
       promises.push(promise);
@@ -49,8 +55,7 @@ const run = async ({ job, db, browser }: RunConfig): Promise<void> => {
     const bucketId = await zipAndStore({
       fileBucket,
       folderName,
-      jobId: job._id,
-      fileName: 'result.zip',
+      filename: 'result.zip',
     });
 
     await fs.rm(folderName, { recursive: true, force: true });

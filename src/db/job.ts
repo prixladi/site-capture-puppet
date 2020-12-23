@@ -19,6 +19,7 @@ type JobDoc = mongoose.Document & {
   subsites: string[];
   viewports: Viewport[];
   quality: number;
+  aquired: boolean;
   progress?: number;
   status: boolean;
   errorMessage?: string;
@@ -41,6 +42,7 @@ const jobSchema = new mongoose.Schema(
       },
     ],
     quality: Number,
+    aquired: { type: Boolean, index: 'hashed' },
     progress: { type: Number, required: false },
     status: Boolean,
     errorMessage: { type: String, required: false },

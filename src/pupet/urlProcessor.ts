@@ -3,6 +3,9 @@ import { JobDoc, ProgressItem } from '../db/job';
 import mongoose from 'mongoose';
 import path from 'path';
 import fs from 'fs/promises';
+import Stopwatch from '../stopwatch';
+import { logOperation } from '../logger';
+import { Semaphore } from 'await-semaphore';
 
 type ProcessorConfig = {
   url: URL;
@@ -11,6 +14,7 @@ type ProcessorConfig = {
   pagePromise: Promise<Page>;
   folderName: string;
   percentage: number;
+  semaphore: Semaphore;
 };
 
 const tryProcessUrl = async (url: URL, { viewports, quality }: JobDoc, fullPath: string, page: Page): Promise<ProgressItem> => {
@@ -37,22 +41,29 @@ const tryProcessUrl = async (url: URL, { viewports, quality }: JobDoc, fullPath:
   }
 };
 
-const processUrl = async ({ url, job, jobModel, pagePromise, folderName, percentage }: ProcessorConfig): Promise<void> => {
-  const page = await pagePromise;
-  const relativePath = path
-    .join(url.pathname, url.search, url.hash)
-    .replace('?', '$qm')
-    .replace('>', '$gt')
-    .replace('<', '$lt')
-    .replace('*', '$ast')
-    .replace('|', '$pip');
+const normalizePath = (relativePath: string): string => {
+  return relativePath.replace('?', '$qm').replace('>', '$gt').replace('<', '$lt').replace('*', '$ast').replace('|', '$pip');
+};
 
-  const fullPath = path.join('./', folderName, relativePath);
-  await fs.mkdir(fullPath, { recursive: true });
+const processUrl = async ({ url, job, jobModel, pagePromise, folderName, percentage, semaphore }: ProcessorConfig): Promise<void> => {
+  const release = await semaphore.acquire();
+  try {
+    const stopwatch = new Stopwatch();
 
-  const resultItem: ProgressItem = await tryProcessUrl(url, job, fullPath, page);
+    const page = await pagePromise;
 
-  await jobModel.updateOne({ _id: job._id }, { $inc: { progress: percentage }, $push: { items: resultItem } });
+    const relativePath = normalizePath(path.join(url.pathname, url.search, url.hash));
+
+    const fullPath = path.join('./', folderName, relativePath);
+    await fs.mkdir(fullPath, { recursive: true });
+    const resultItem: ProgressItem = await tryProcessUrl(url, job, fullPath, page);
+    await jobModel.updateOne({ _id: job._id }, { $inc: { progress: percentage }, $push: { items: resultItem } });
+
+    await page.close();
+    logOperation(`Processing url '${url}' `, stopwatch);
+  } finally {
+    release();
+  }
 };
 
 export default processUrl;

@@ -2,11 +2,12 @@ import mongoose from 'mongoose';
 import { devEnvironment, mongoConfig } from '../configs';
 import jobModel from './job';
 import { ObjectID } from 'mongodb';
-import { MongoGridFS } from 'mongo-gridfs';
+import { GridFSBucket } from 'mongodb';
+import createBucket from './fileBucket';
 
 type DB = {
   jobModel: typeof jobModel;
-  fileBucket: MongoGridFS;
+  fileBucket: GridFSBucket;
 };
 
 type RawDoc<Doc extends mongoose.Document> = Omit<Doc, keyof mongoose.Document> & { _id: ObjectID };
@@ -48,7 +49,7 @@ const connect = async (): Promise<DB> => {
 
   return {
     jobModel,
-    fileBucket: new MongoGridFS(mongoose.connection.db, 'results'),
+    fileBucket: createBucket(mongoose.connection.db, 'results'),
   };
 };
 

@@ -1,26 +1,28 @@
 import { launch } from 'puppeteer';
+import { browserConfig } from './configs';
+import { percentOnAquire } from './constants';
 import { connect as connectDb, DB, disconnect as disconnectDb } from './db';
+import { logJobFinish, logJobStart } from './logger';
 import puppet from './pupet';
+import StopWatch from './stopwatch';
 
 let exiting = false;
 
 const runLoop = async (db: DB): Promise<void> => {
   const delay = (ms: number): Promise<void> => new Promise((res) => setTimeout(res, ms));
-  const browser = await launch();
+  const browser = await launch(browserConfig.useSandbox ? undefined : { args: ['--no-sandbox'] });
 
   // TODO: Use MongoDB change streams
   // TODO: Use redis to notify about new job added to DB
   // TODO: Notify server that job has been finished
   while (!exiting) {
     try {
-      const job = await db.jobModel.findOneAndUpdate({ progress: { $exists: false } }, { $set: { progress: 0 } });
+      const job = await db.jobModel.findOneAndUpdate({ aquired: false }, { $set: { progress: percentOnAquire, aquired: true } });
       if (job) {
-        console.log(`Found job to proccess, id: '${job._id}'.`);
-        const start = new Date();
+        logJobStart(job._id.toString());
+        const stopwatch = new StopWatch();
         await puppet({ job, db, browser });
-        const end = new Date();
-        const elapsed = end.getTime() - start.getTime();
-        console.log(`Job with id '${job._id}' proccessed in ${elapsed}ms.`);
+        logJobFinish(job._id.toString(), stopwatch);
       } else {
         await delay(2000);
       }

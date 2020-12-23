@@ -1,19 +1,47 @@
 import AdmZip from 'adm-zip';
-import { MongoGridFS } from 'mongo-gridfs';
 import { ObjectID } from 'mongodb';
+import { GridFSBucket } from 'mongodb';
+import { Readable } from 'stream';
+import { logOperation } from '../logger';
+import Stopwatch from '../stopwatch';
 
 type StorageConfig = {
-  fileBucket: MongoGridFS;
+  fileBucket: GridFSBucket;
   folderName: string;
-  jobId: ObjectID;
-  fileName: string;
+  filename: string;
 };
 
-const zipAndStore = async ({ fileBucket, folderName, jobId, fileName }: StorageConfig): Promise<ObjectID> => {
+type GridFSObject = {
+  _id: ObjectID;
+  length: number;
+  chunkSize: number;
+  uploadDate: Date;
+  md5: string;
+  filename: string;
+};
+
+const zipAndStore = async ({ fileBucket, folderName, filename }: StorageConfig): Promise<ObjectID> => {
+  const stopwatch = new Stopwatch();
   const zip = new AdmZip();
   zip.addLocalFolder(folderName);
-  zip.writeZip(`./${jobId}.zip`);
-  const result = await fileBucket.uploadFile(`./${jobId}.zip`, { filename: fileName }, true);
+
+  const buffer = zip.toBuffer();
+  const stream = Readable.from(buffer);
+
+  const result = await new Promise<GridFSObject>((resolve, reject) =>
+    stream.pipe(
+      fileBucket
+        .openUploadStream(filename)
+        .on('error', async (err) => {
+          reject(err);
+        })
+        .on('finish', async (item: GridFSObject) => {
+          resolve(item);
+        }),
+    ),
+  );
+
+  logOperation("Commpression and file upload", stopwatch);
 
   return result._id;
 };
