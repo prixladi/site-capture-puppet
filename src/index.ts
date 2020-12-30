@@ -25,10 +25,12 @@ const runLoop = async (db: DB, redisClient: RedisClient): Promise<void> => {
       );
 
       if (job) {
-        logJobStart(job._id.toString());
+        logJobStart(job._id.toHexString());
         const stopwatch = new StopWatch();
+
         await puppet({ job, db, redisClient, browser });
-        logJobFinish(job._id.toString(), stopwatch);
+
+        logJobFinish(job._id.toHexString(), stopwatch);
       } else {
         await delay(2000);
       }

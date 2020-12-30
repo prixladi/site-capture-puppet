@@ -83,7 +83,7 @@ const processUrl = async ({
       { new: true },
     );
     if (updatedJob) {
-      await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: updatedJob.progress, item: resultItem, status: false });
+      await sendProgressUpdate(redisClient, { id: job._id.toHexString(), progress: updatedJob.progress, item: resultItem, status: false });
     }
 
     await page.close();
