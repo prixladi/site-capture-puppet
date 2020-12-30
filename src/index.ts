@@ -2,7 +2,7 @@ import { launch } from 'puppeteer';
 import { browserConfig } from './configs';
 import { percentOnAquire } from './constants';
 import { connect as connectDb, DB, disconnect as disconnectDb } from './db';
-import { connect as connectRedis, disconnect as disconnectRedis, sendProgressUpdate } from './redis';
+import { connect as connectRedis, disconnect as disconnectRedis } from './redis';
 import { Redis as RedisClient } from 'ioredis';
 import { logJobFinish, logJobStart } from './logger';
 import puppet from './pupet';
@@ -18,11 +18,13 @@ const runLoop = async (db: DB, redisClient: RedisClient): Promise<void> => {
   // TODO: Or use redis pub/sub
   while (!exiting) {
     try {
-      const job = await db.jobModel.findOneAndUpdate({ aquired: false }, { $set: { progress: percentOnAquire, aquired: true } });
+      const job = await db.jobModel.findOneAndUpdate(
+        { aquired: false },
+        { $set: { progress: percentOnAquire, aquired: true } },
+        { new: true },
+      );
 
       if (job) {
-        await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: job.progress });
-
         logJobStart(job._id.toString());
         const stopwatch = new StopWatch();
         await puppet({ job, db, redisClient, browser });

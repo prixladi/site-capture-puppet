@@ -42,6 +42,8 @@ const run = async ({ job, db, redisClient, browser }: RunConfig): Promise<void> 
   const folderName = `.data/${job._id}`;
 
   try {
+    await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: job.progress, status: false });
+
     const urls = createUrls(url, subsites);
     
     const promises: Promise<void>[] = [];
@@ -81,12 +83,12 @@ const run = async ({ job, db, redisClient, browser }: RunConfig): Promise<void> 
     await fs.rm(folderName, { recursive: true, force: true });
 
     await jobModel.updateOne({ _id: job._id }, { $set: { progress: 100, status: true, zipFileId: bucketId } });
+    await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: 100, status: true });
   } catch (err) {
     console.log(err);
     await jobModel.updateOne({ _id: job._id }, { $set: { progress: 100, status: false, errorMessage: err.toString() } });
-  } finally {
-    await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: 100 });
-  }
+    await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: 100, status: true, errorMessage: err.toString() });
+  } 
 };
 
 export default run;

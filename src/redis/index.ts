@@ -10,7 +10,10 @@ type ProgressItem = {
 
 type ProgressDto = {
   id: string;
+  status: boolean;
   progress: number;
+  errorMessage?: string;
+  zipFileId?: string;
   item?: ProgressItem;
 };
 
@@ -18,6 +21,11 @@ const connect = (): RedisClient => {
   return new Redis({
     port: redisConfig.port,
     host: redisConfig.host,
+    lazyConnect: true,
+    maxRetriesPerRequest: 4,
+    retryStrategy: times => {
+      return Math.min(times * 50, 2000);
+    }
   });
 };
 
@@ -30,8 +38,12 @@ const disconnect = (redisClient: RedisClient): void => {
 };
 
 const sendProgressUpdate = async (redisClient: RedisClient, progress: ProgressDto): Promise<void> => {
-  const publish = promisify<string, string>(redisClient.publish).bind(redisClient);
-  await publish('progress', JSON.stringify(progress));
+  try {
+    const publish = promisify<string, string>(redisClient.publish).bind(redisClient);
+    await publish('progress', JSON.stringify(progress));
+  } catch (err) {
+    console.error('Error while publishing to redis.', err);
+  }
 };
 
 export { connect, disconnect, sendProgressUpdate };
