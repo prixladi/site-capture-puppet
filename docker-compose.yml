@@ -10,6 +10,14 @@ services:
     volumes:
       - mongodata:/data/db
 
+  redis:
+    image: redis:latest
+    ports:
+      - 6379:6379
+    volumes:
+      - redisdata:/data
+    command: redis-server --maxmemory 500m --maxmemory-policy allkeys-lru
+
   authority:
     image: shamyr/cloud-authority
     ports:
@@ -38,6 +46,8 @@ services:
     environment:
       MONGO_URL: mongodb://mongodb
       MONGO_DB_NAME: siteCapture
+      REDIS_HOST: redis
+      REDIS_PORT: 6379 
       MAX_PARALLEL_TABS: 1
       USE_SANDBOX: "false"
     build:
@@ -46,3 +56,4 @@ services:
 
 volumes:
   mongodata:
+  redisdata:

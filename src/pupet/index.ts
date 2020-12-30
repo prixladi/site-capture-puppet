@@ -7,24 +7,43 @@ import processUrl from './urlProcessor';
 import { percentOnProccessing } from '../constants';
 import { Semaphore } from 'await-semaphore';
 import { browserConfig } from '../configs';
+import { Redis as RedisClient } from 'ioredis';
+import { sendProgressUpdate } from '../redis';
 
 type RunConfig = {
   job: JobDoc;
   db: DB;
   browser: Browser;
+  redisClient: RedisClient;
 };
 
-const createUrls = (url: string, subsites: string[]) => {
-  return [...new Set(['/', ...subsites])].map((sub) => new URL(sub, url));
+const createUrls = (url: string, subsites: string[]): URL[] => {
+  // We want to threat subsites as relative paths
+  const normalizedSubsites = subsites
+    .map((sub) => {
+      if (sub.startsWith('/')) {
+        return sub.substring(1);
+      }
+
+      return sub;
+    })
+    .filter((sub) => sub != '');
+
+  const normalizedUrl = url.endsWith('/') ? url : `${url}/`;
+
+  const urls = [...new Set(normalizedSubsites)].map((sub) => new URL(sub, normalizedUrl));
+  urls.push(new URL(normalizedUrl));
+  return urls;
 };
 
-const run = async ({ job, db, browser }: RunConfig): Promise<void> => {
+const run = async ({ job, db, redisClient, browser }: RunConfig): Promise<void> => {
   const { url, subsites } = job;
   const { jobModel, fileBucket } = db;
   const folderName = `.data/${job._id}`;
 
   try {
     const urls = createUrls(url, subsites);
+    
     const promises: Promise<void>[] = [];
     const percentageEach = percentOnProccessing / urls.length;
 
@@ -42,6 +61,7 @@ const run = async ({ job, db, browser }: RunConfig): Promise<void> => {
         url,
         job,
         jobModel,
+        redisClient,
         pagePromise: browser.newPage(),
         folderName,
         percentage: percentageEach,
@@ -64,6 +84,8 @@ const run = async ({ job, db, browser }: RunConfig): Promise<void> => {
   } catch (err) {
     console.log(err);
     await jobModel.updateOne({ _id: job._id }, { $set: { progress: 100, status: false, errorMessage: err.toString() } });
+  } finally {
+    await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: 100 });
   }
 };
 

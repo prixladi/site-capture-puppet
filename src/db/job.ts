@@ -20,8 +20,8 @@ type JobDoc = mongoose.Document & {
   viewports: Viewport[];
   quality: number;
   aquired: boolean;
-  progress?: number;
   status: boolean;
+  progress: number;
   errorMessage?: string;
   zipFileId?: ObjectID;
   items?: ProgressItem[];
@@ -43,7 +43,7 @@ const jobSchema = new mongoose.Schema(
     ],
     quality: Number,
     aquired: { type: Boolean, index: 'hashed' },
-    progress: { type: Number, required: false },
+    progress: Number,
     status: Boolean,
     errorMessage: { type: String, required: false },
     zipFileId: mongoose.Types.ObjectId,

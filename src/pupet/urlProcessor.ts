@@ -6,18 +6,28 @@ import fs from 'fs/promises';
 import Stopwatch from '../stopwatch';
 import { logOperation } from '../logger';
 import { Semaphore } from 'await-semaphore';
+import { Redis as RedisClient } from 'ioredis';
+import { sendProgressUpdate } from '../redis';
 
 type ProcessorConfig = {
   url: URL;
   job: JobDoc;
   jobModel: mongoose.Model<JobDoc>;
+  redisClient: RedisClient;
   pagePromise: Promise<Page>;
   folderName: string;
   percentage: number;
   semaphore: Semaphore;
 };
 
-const tryProcessUrl = async (url: URL, { viewports, quality }: JobDoc, fullPath: string, page: Page): Promise<ProgressItem> => {
+type TryProcessUrlProps = {
+  url: URL;
+  job: JobDoc;
+  fullPath: string;
+  page: Page;
+};
+
+const tryProcessUrl = async ({ url, job: { viewports, quality }, fullPath, page }: TryProcessUrlProps): Promise<ProgressItem> => {
   try {
     await page.goto(url.href);
 
@@ -45,7 +55,16 @@ const normalizePath = (relativePath: string): string => {
   return relativePath.replace('?', '$qm').replace('>', '$gt').replace('<', '$lt').replace('*', '$ast').replace('|', '$pip');
 };
 
-const processUrl = async ({ url, job, jobModel, pagePromise, folderName, percentage, semaphore }: ProcessorConfig): Promise<void> => {
+const processUrl = async ({
+  url,
+  job,
+  jobModel,
+  redisClient,
+  pagePromise,
+  folderName,
+  percentage,
+  semaphore,
+}: ProcessorConfig): Promise<void> => {
   const release = await semaphore.acquire();
   try {
     const stopwatch = new Stopwatch();
@@ -56,8 +75,16 @@ const processUrl = async ({ url, job, jobModel, pagePromise, folderName, percent
 
     const fullPath = path.join('./', folderName, relativePath);
     await fs.mkdir(fullPath, { recursive: true });
-    const resultItem: ProgressItem = await tryProcessUrl(url, job, fullPath, page);
-    await jobModel.updateOne({ _id: job._id }, { $inc: { progress: percentage }, $push: { items: resultItem } });
+    const resultItem: ProgressItem = await tryProcessUrl({ url, job, fullPath, page });
+
+    const updatedJob = await jobModel.findOneAndUpdate(
+      { _id: job._id },
+      { $inc: { progress: percentage }, $push: { items: resultItem } },
+      { new: true },
+    );
+    if (updatedJob) {
+      await sendProgressUpdate(redisClient, { id: job._id.toString(), progress: updatedJob.progress, item: resultItem });
+    }
 
     await page.close();
     logOperation(`Processing url '${url}' `, stopwatch);
