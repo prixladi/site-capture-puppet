@@ -45,7 +45,7 @@ const run = async ({ job, db, redisClient, browser }: RunConfig): Promise<void> 
     await sendProgressUpdate(redisClient, { id: job._id.toHexString(), progress: job.progress, status: false });
 
     const urls = createUrls(url, subsites);
-    
+
     const promises: Promise<void>[] = [];
     const percentageEach = percentOnProccessing / urls.length;
 
@@ -88,7 +88,7 @@ const run = async ({ job, db, redisClient, browser }: RunConfig): Promise<void> 
     console.log(err);
     await jobModel.updateOne({ _id: job._id }, { $set: { progress: 100, status: false, errorMessage: err.toString() } });
     await sendProgressUpdate(redisClient, { id: job._id.toHexString(), progress: 100, status: true, errorMessage: err.toString() });
-  } 
+  }
 };
 
 export default run;

@@ -15,6 +15,7 @@ type ProgressDto = {
   errorMessage?: string;
   zipFileId?: string;
   item?: ProgressItem;
+  annonymous: boolean;
 };
 
 const connect = (): RedisClient => {
@@ -23,9 +24,9 @@ const connect = (): RedisClient => {
     host: redisConfig.host,
     lazyConnect: true,
     maxRetriesPerRequest: 4,
-    retryStrategy: times => {
+    retryStrategy: (times) => {
       return Math.min(times * 50, 2000);
-    }
+    },
   });
 };
 

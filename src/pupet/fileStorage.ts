@@ -41,7 +41,7 @@ const zipAndStore = async ({ fileBucket, folderName, filename }: StorageConfig):
     ),
   );
 
-  logOperation("Commpression and file upload", stopwatch);
+  logOperation('Commpression and file upload', stopwatch);
 
   return result._id;
 };
