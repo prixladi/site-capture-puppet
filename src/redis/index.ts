@@ -1,6 +1,5 @@
 import Redis, { Redis as RedisClient } from 'ioredis';
 import { redisConfig } from '../configs';
-import { promisify } from 'util';
 
 type ProgressItem = {
   url: string;
@@ -15,8 +14,9 @@ type ProgressDto = {
   errorMessage?: string;
   zipFileId?: string;
   item?: ProgressItem;
-  annonymous: boolean;
 };
+
+const progressChannelName = 'progress';
 
 const connect = (): RedisClient => {
   return new Redis({
@@ -38,13 +38,14 @@ const disconnect = (redisClient: RedisClient): void => {
   }
 };
 
-const sendProgressUpdate = async (redisClient: RedisClient, progress: ProgressDto): Promise<void> => {
+const sendProgressUpdate = async (redisClient: RedisClient, progress: ProgressDto): Promise<boolean> => {
   try {
-    const publish = promisify<string, string>(redisClient.publish).bind(redisClient);
-    await publish('progress', JSON.stringify(progress));
+    await redisClient.publish(progressChannelName, JSON.stringify(progress));
+    return true;
   } catch (err) {
     console.error('Error while publishing to redis.', err);
+    return false;
   }
 };
 
-export { connect, disconnect, sendProgressUpdate };
+export { connect, disconnect, progressChannelName, sendProgressUpdate };

@@ -6,6 +6,7 @@ import { logOperation } from '../logger';
 import Stopwatch from '../stopwatch';
 
 type StorageConfig = {
+  zip: AdmZip;
   fileBucket: GridFSBucket;
   folderName: string;
   filename: string;
@@ -20,9 +21,8 @@ type GridFSObject = {
   filename: string;
 };
 
-const zipAndStore = async ({ fileBucket, folderName, filename }: StorageConfig): Promise<ObjectID> => {
+const zipAndStore = async ({ fileBucket, folderName, filename, zip }: StorageConfig): Promise<ObjectID> => {
   const stopwatch = new Stopwatch();
-  const zip = new AdmZip();
   zip.addLocalFolder(folderName);
 
   const buffer = zip.toBuffer();
@@ -46,4 +46,5 @@ const zipAndStore = async ({ fileBucket, folderName, filename }: StorageConfig):
   return result._id;
 };
 
+export type { StorageConfig };
 export default zipAndStore;

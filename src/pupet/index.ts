@@ -9,6 +9,7 @@ import { Semaphore } from 'await-semaphore';
 import { browserConfig } from '../configs';
 import { Redis as RedisClient } from 'ioredis';
 import { sendProgressUpdate } from '../redis';
+import AdmZip from 'adm-zip';
 
 type RunConfig = {
   job: JobDoc;
@@ -75,6 +76,7 @@ const run = async ({ job, db, redisClient, browser }: RunConfig): Promise<void> 
     await Promise.all(promises);
 
     const bucketId = await zipAndStore({
+      zip: new AdmZip(),
       fileBucket,
       folderName,
       filename: 'result.zip',
